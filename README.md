@@ -92,7 +92,7 @@ chmod +x ./install.sh
 - 监听右侧 `Command`
 - 记录当前输入法
 - 切换到豆包输入法
-- 模拟双击左侧 `Option`
+- 模拟双击右侧 `Option`
 - 延迟恢复到之前的输入法
 
 ## 适合谁
@@ -112,19 +112,19 @@ chmod +x ./install.sh
 
 ## 输入法 ID
 
-当前配置里默认使用这个豆包输入法 ID：
+当前配置里默认通过输入法名称匹配：
 
 ```lua
-local TARGET_INPUT_SOURCE = "com.bytedance.inputmethod.doubaoime.pinyin"
+local TARGET_INPUT_SOURCE = "豆包输入法"
 ```
 
-如果你机器上的输入法 ID 不一致，需要手动修改 [init.lua](./init.lua)，然后在 Hammerspoon 中重新加载配置。
+如果你机器上的输入法名称不一致，也可以使用输入法 bundle ID（如 `com.bytedance.inputmethod.doubaoime.pinyin`），手动修改 [init.lua](./init.lua) 后在 Hammerspoon 中重新加载配置。
 
 ## 可以继续自定义的地方
 
 你可以按自己的习惯继续改：
 
 - 触发按键
-- 双击 `Option` 的时间间隔
+- 双击右 `Option` 的时间间隔
 - 恢复原输入法的延迟
 - 与你现有 Hammerspoon 配置的整合方式

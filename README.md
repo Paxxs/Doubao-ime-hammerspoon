@@ -77,23 +77,33 @@ chmod +x ./install.sh
 ./install.sh --force
 ```
 
+## 前置配置：豆包语音输入「长按模式」
+
+> 适配豆包输入法 macOS 版本 **0.9.1**。
+
+脚本依赖豆包的「长按说话」快捷键，请先在豆包输入法中确认：
+
+1. 打开豆包输入法设置 → `语音输入`。
+2. 在「快捷键」中找到 **长按模式**（按住说话，松手结束）。
+3. 确认其快捷键绑定为 **左 ⌘（左 Command）**。
+
+脚本正是通过"按住左 Command"来对接这个长按模式，所以这一项必须设为左 ⌘。
+
 ## 安装后怎么用
 
 1. 打开 Hammerspoon。
 2. 第一次运行时，为 Hammerspoon 授予 macOS 的“辅助功能”权限。
 3. 在 Hammerspoon 菜单栏图标中点击 `Reload Config`。
-4. 默认按住并松开右侧 `Command` 键。
-5. 脚本会自动切换到豆包输入法、触发语音输入，并在稍后恢复你原本的输入法。
+4. **按住左侧 `Option` 键说话，说完松开。**
+5. 脚本会自动切换到豆包输入法、按住左 `Command` 开始录音，松开后结束录音，并在稍后恢复你原本的输入法。
 
 ## 当前默认行为
 
 当前 [init.lua](./init.lua) 的逻辑是：
 
-- 监听右侧 `Command`
-- 记录当前输入法
-- 切换到豆包输入法
-- 模拟双击左侧 `Option`
-- 延迟恢复到之前的输入法
+- 监听左侧 `Option`（按住说话模式）
+- 按下左 `Option` 时：记录当前输入法 → 切换到豆包输入法 → `0.3s` 后若仍按住则按下并保持左 `Command`（开始录音）
+- 松开左 `Option` 时：松开左 `Command`（结束录音）→ 延迟 `2s` 恢复到之前的输入法
 
 ## 适合谁
 
@@ -124,7 +134,7 @@ local TARGET_INPUT_SOURCE = "com.bytedance.inputmethod.doubaoime.pinyin"
 
 你可以按自己的习惯继续改：
 
-- 触发按键
-- 双击 `Option` 的时间间隔
-- 恢复原输入法的延迟
+- 触发按键（默认左 `Option`，对应 `KEYCODE_LEFT_OPTION`）
+- 按下左 `Command` 前的延迟（`CMD_PRESS_DELAY`）
+- 恢复原输入法的延迟（`RESTORE_IME_DELAY`）
 - 与你现有 Hammerspoon 配置的整合方式

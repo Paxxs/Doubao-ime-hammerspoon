@@ -9,8 +9,13 @@ local alert = hs.alert
 -- 目标输入法
 local TARGET_INPUT_SOURCE = "豆包输入法"
 
--- 按住左 Option 后，多久再按下左 Command 开始录音（秒）
+-- 按住左 Option 后，多久确认为"有意录音"并切换到豆包（秒）
+-- 快速点击未达此时长则不切输入法、不录音，避免误触抖动
 local CMD_PRESS_DELAY = 0.30
+
+-- 切到豆包后，再等多久才按下左 Command（秒）
+-- 给豆包完成输入法切换的时间，避免 Command 先于切换到达导致录音不触发
+local SWITCH_TO_CMD_DELAY = 0.10
 
 -- 松开左 Option 后，延迟多久恢复原输入法（秒）
 local RESTORE_IME_DELAY = 2.0
@@ -164,18 +169,28 @@ local function onLeftOptDown()
     -- 新一轮开始时，取消上一次尚未执行的恢复动作
     cancelRestoreImeTimer()
 
-    switchToTargetIME()
-
+    -- 延迟切豆包：只有按住超过 CMD_PRESS_DELAY 才真正切换输入法并开始录音，
+    -- 快速点击（误触）不会动输入法，零抖动
     cancelCmdTimer()
     cmdPressTimer = hs.timer.doAfter(CMD_PRESS_DELAY, function()
         cmdPressTimer = nil
 
-        if leftOptIsDown then
-            log.df("延迟结束，左 Option 仍按着，按下左 Command 开始录音")
-            pressLeftCmd()
-        else
-            log.df("延迟结束时左 Option 已松开，不再按下左 Command")
+        if not leftOptIsDown then
+            log.df("延迟结束时左 Option 已松开（快速点击），不切换输入法、不录音")
+            return
         end
+
+        log.df("延迟结束，左 Option 仍按着，切换到豆包并准备录音")
+        switchToTargetIME()
+
+        -- 切完输入法再稍候按下 Command，给豆包完成切换的时间
+        hs.timer.doAfter(SWITCH_TO_CMD_DELAY, function()
+            if leftOptIsDown then
+                pressLeftCmd()
+            else
+                log.df("切换后左 Option 已松开，不再按下左 Command")
+            end
+        end)
     end)
 end
 
@@ -188,11 +203,30 @@ local function onLeftOptUp()
     leftOptIsDown = false
     log.df("检测到左 Option 松开")
 
+    -- 松开前的状态判断：
+    -- wasRecording：是否真的进入了录音（左 Command 被按住）
+    -- switchedIME：是否已经切到过豆包（switchToTargetIME 记录了原输入法）
+    local wasRecording = cmdIsHeld
+    local switchedIME = previousInputSource ~= nil
+
     cancelCmdTimer()
     releaseLeftCmd()
 
-    -- 延迟恢复原输入法
-    scheduleRestorePreviousIME()
+    if not switchedIME then
+        -- 快速点击：定时器在切豆包前就被取消，输入法从未改动，什么都不用做
+        log.df("快速点击，未切换过输入法，无需恢复")
+        return
+    end
+
+    if wasRecording then
+        -- 已进入录音：延迟恢复，给豆包时间把识别结果上屏
+        scheduleRestorePreviousIME()
+    else
+        -- 切了豆包但还没按下 Command 就松开了：立即切回原输入法，不傻等
+        log.df("已切豆包但未进入录音便松开，立即恢复原输入法")
+        cancelRestoreImeTimer()
+        restorePreviousIME()
+    end
 end
 
 -- 监听左 Option 的 flagsChanged：按内部状态翻转，不依赖 flags.alt 的真假

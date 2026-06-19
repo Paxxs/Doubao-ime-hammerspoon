@@ -1,7 +1,7 @@
 -- ============================================
--- Right Command -> switch IME -> double tap Left Option
+-- Right Command -> switch IME -> tap Right Option（豆包免按模式）
 -- 放到 ~/.hammerspoon/init.lua
--- 版本：保持当前可用行为，只修监听容易失效的问题
+-- 对齐豆包默认免按模式：右 Option 单击开始说话，再按任意键结束
 -- ============================================
 local log = hs.logger.new("RightCmdIME", "debug")
 local alert = hs.alert
@@ -9,11 +9,9 @@ local alert = hs.alert
 -- 目标输入法
 local TARGET_INPUT_SOURCE = "豆包输入法"
 
--- 右侧 Command 按下后，多久再执行双击左 Option（秒）
-local OPTION_PRESS_DELAY = 0.30
-
--- 两次 Option 点击之间的间隔（秒）
-local OPTION_DOUBLE_TAP_INTERVAL = 0.18
+-- 右侧 Command 按下后，多久再触发豆包语音键（秒）
+-- 留出时间让输入法切换生效，避免语音键发得太早被丢弃
+local VOICE_KEY_PRESS_DELAY = 0.30
 
 -- 松开右 Command 后，延迟多久恢复原输入法（秒）
 local RESTORE_IME_DELAY = 2.0
@@ -24,8 +22,10 @@ local KEYCODE_RIGHT_CMD = 54
 -- 状态变量
 local previousInputSource = nil
 local rightCmdIsDown = false
-local optionPressTimer = nil
+local voiceKeyTimer = nil
 local restoreImeTimer = nil
+-- 是否已经发出过「开始说话」的语音键，决定松开时要不要再补一个「结束」键
+local voiceStarted = false
 
 local function nowSource()
     local method = hs.keycodes.currentMethod()
@@ -53,26 +53,19 @@ local function debugCurrentInputState(prefix)
     log.df("[%s] currentSourceID = %s", prefix, tostring(hs.keycodes.currentSourceID()))
 end
 
-local function tapLeftOptionOnce()
-    hs.eventtap.event.newKeyEvent(hs.keycodes.map.alt, true):post()
-    hs.eventtap.event.newKeyEvent(hs.keycodes.map.alt, false):post()
+-- 模拟单击右 Option，对应豆包免按模式：
+-- 第一次按用于「开始说话」，结束时再按一次作为「任意键」结束
+local function tapVoiceKeyOnce()
+    log.df("模拟单击右 Option（豆包语音键）")
+    hs.eventtap.event.newKeyEvent(hs.keycodes.map.rightalt, true):post()
+    hs.eventtap.event.newKeyEvent(hs.keycodes.map.rightalt, false):post()
 end
 
-local function doubleTapLeftOption()
-    log.df("开始模拟双击左 Option")
-    tapLeftOptionOnce()
-
-    hs.timer.doAfter(OPTION_DOUBLE_TAP_INTERVAL, function()
-        tapLeftOptionOnce()
-        log.df("已完成双击左 Option")
-    end)
-end
-
-local function cancelOptionTimer()
-    if optionPressTimer then
-        optionPressTimer:stop()
-        optionPressTimer = nil
-        log.df("已取消待执行的 Option 定时器")
+local function cancelVoiceKeyTimer()
+    if voiceKeyTimer then
+        voiceKeyTimer:stop()
+        voiceKeyTimer = nil
+        log.df("已取消待执行的语音键定时器")
     end
 end
 
@@ -154,6 +147,7 @@ local function onRightCmdDown()
     end
 
     rightCmdIsDown = true
+    voiceStarted = false
     log.df("检测到右 Command 按下")
 
     -- 新一轮开始时，取消上一次尚未执行的恢复动作
@@ -161,15 +155,16 @@ local function onRightCmdDown()
 
     switchToTargetIME()
 
-    cancelOptionTimer()
-    optionPressTimer = hs.timer.doAfter(OPTION_PRESS_DELAY, function()
-        optionPressTimer = nil
+    cancelVoiceKeyTimer()
+    voiceKeyTimer = hs.timer.doAfter(VOICE_KEY_PRESS_DELAY, function()
+        voiceKeyTimer = nil
 
         if rightCmdIsDown then
-            log.df("延迟结束，右 Command 仍按着，准备双击左 Option")
-            doubleTapLeftOption()
+            log.df("延迟结束，右 Command 仍按着，触发豆包语音（开始说话）")
+            tapVoiceKeyOnce()
+            voiceStarted = true
         else
-            log.df("延迟结束时右 Command 已松开，不再双击左 Option")
+            log.df("延迟结束时右 Command 已松开，不再触发语音")
         end
     end)
 end
@@ -183,8 +178,16 @@ local function onRightCmdUp()
     rightCmdIsDown = false
     log.df("检测到右 Command 松开")
 
-    cancelOptionTimer()
-    doubleTapLeftOption()
+    -- 松开太快时（语音还没开始）取消待执行的开始动作，避免误触发
+    cancelVoiceKeyTimer()
+
+    if voiceStarted then
+        log.df("语音已开始，补发右 Option 作为「任意键」结束说话")
+        tapVoiceKeyOnce()
+        voiceStarted = false
+    else
+        log.df("语音尚未开始，松开时不补发语音键")
+    end
 
     -- 延迟恢复原输入法
     scheduleRestorePreviousIME()

@@ -92,8 +92,11 @@ chmod +x ./install.sh
 - 监听右侧 `Command`
 - 记录当前输入法
 - 切换到豆包输入法
-- 模拟双击左侧 `Option`
+- 模拟单击右侧 `Option`，对齐豆包「免按模式」：按下右 `Command` 时开始说话，松开时再按一次结束
 - 延迟恢复到之前的输入法
+
+> 这依赖豆包「免按模式」的默认快捷键为**右 `Option`**（豆包设置 → 语音输入 → 免按模式）。
+> 如果你改过这个快捷键，记得同步改一下 [init.lua](./init.lua) 里模拟的按键。
 
 ## 适合谁
 
@@ -125,6 +128,6 @@ local TARGET_INPUT_SOURCE = "com.bytedance.inputmethod.doubaoime.pinyin"
 你可以按自己的习惯继续改：
 
 - 触发按键
-- 双击 `Option` 的时间间隔
+- 切换输入法后触发语音键的延迟
 - 恢复原输入法的延迟
 - 与你现有 Hammerspoon 配置的整合方式
